@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Gangs of Los Santos (2026)</title>
+    <link rel="icon" type="image/x-icon" href="favicon-001.ico">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #f5f5f5; overflow: hidden; font-family: 'Roboto', Arial, sans-serif; }
+        #map { width: 100vw; height: 100vh; background-color: #f5f5f5; z-index: 1; }
+
+        /* =========================================
+           1. SOL ANA LİSTE (KATMAN PANELİ - 450px)
+           ========================================= */
+        #ana-liste-paneli {
+            position: absolute; top: 0; left: 0; 
+            width: 450px; height: 100vh;
+            background-color: white; z-index: 1500; 
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            display: flex; flex-direction: column;
+            border-right: 1px solid #ddd;
+            overflow-y: auto; 
+        }
+
+        /* SOL PANEL İÇİN MODERN SCROLLBAR */
+        #ana-liste-paneli::-webkit-scrollbar { width: 6px; }
+        #ana-liste-paneli::-webkit-scrollbar-track { background: transparent; }
+        #ana-liste-paneli::-webkit-scrollbar-thumb { background: #dadce0; border-radius: 4px; }
+        #ana-liste-paneli::-webkit-scrollbar-thumb:hover { background: #bdc1c6; }
+
+        .liste-header { 
+            background-color: #db4437; color: white; 
+            display: flex; align-items: center; justify-content: space-between; 
+            padding: 12px 20px; height: 45px; flex-shrink: 0;
+        }
+        .header-sol { display: flex; align-items: center; gap: 20px; }
+        .hamburger-ikon { fill: white; width: 22px; height: 22px; cursor: pointer; }
+        .header-sol h2 { margin: 0; font-size: 18px; font-weight: 500; }
+        
+        .header-sag { display: flex; align-items: center; gap: 15px; }
+        .buyutec-ikon { width: 20px; height: 20px; fill: white; cursor: pointer; }
+        .nokta-ikon { fill: white; width: 22px; height: 22px; cursor: pointer; }
+
+        /* =========================================
+           ANİMASYONLU BRİFİNG ALANI
+           ========================================= */
+        .briefing-container {
+            border-bottom: 1px solid #ebebeb;
+            background-color: #f8f9fa;
+            flex-shrink: 0;
+        }
+        .briefing-baslik-alani {
+            padding: 15px 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+            font-size: 14px;
+            color: #3c4043;
+            transition: background-color 0.2s;
+        }
+        .briefing-baslik-alani:hover { background-color: #f1f3f4; }
+        .briefing-ok { margin-top: 2px; font-size: 12px; color: #5f6368; transition: transform 0.3s; }
+        .briefing-ozet { flex: 1; line-height: 1.4; }
+        
+        .briefing-icerik-wrapper {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease-in-out;
+        }
+        .briefing-icerik-wrapper.acik {
+            max-height: 3000px; 
+        }
+        .briefing-icerik {
+            padding: 0 20px 20px 50px;
+            font-size: 14px; 
+            color: #3c4043;
+            line-height: 1.6;
+            text-align: justify;
+        }
+        .paylas-yazisi { color: #1a73e8; font-weight: 500; margin-top: 10px; display: inline-block; cursor: pointer; }
+
+        #gercek-liste { flex: 1; padding-bottom: 20px; }
+
+        .katman-grup { border-bottom: 1px solid #ebebeb; padding-bottom: 8px; }
+        .grup-baslik-satiri { display: flex; align-items: center; padding: 16px 20px 6px 20px; gap: 20px; }
+        
+        .grup-cb { width: 18px; height: 18px; cursor: pointer; accent-color: #db4437; }
+        .grup-adi { font-size: 16px; font-weight: 500; color: #202124; }
+
+        .grup-icerik { display: flex; flex-direction: column; }
+        
+        .liste-item { display: flex; align-items: center; gap: 15px; padding: 10px 20px 10px 56px; cursor: pointer; transition: 0.1s; }
+        .liste-item:hover { background-color: #f1f3f4; }
+        
+        .item-ikon { width: 16px; height: 16px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+        .item-isim { font-size: 15px; color: #3c4043; }
+
+        .footer-signature {
+            padding: 10px 20px;
+            border-top: 1px solid #eee;
+            font-size: 11px;
+            color: #9aa0a6;
+            background-color: #fafafa;
+            font-family: monospace;
+            text-align: left;
+            flex-shrink: 0;
+        }
+
+        /* =========================================
+           2. ARAMA PANELİ
+           ========================================= */
+        #arama-paneli {
+            position: absolute; top: 0; left: -470px; width: 450px; height: 100vh;
+            background-color: white; z-index: 1800;
+            box-shadow: 4px 0 15px rgba(0,0,0,0.15); display: flex; flex-direction: column;
+            transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        #arama-paneli.acik { left: 0; }
+
+        .arama-ust-bar {
+            display: flex; align-items: center; padding: 10px 15px;
+            border-bottom: 1px solid #e0e0e0; height: 49px;
+        }
+        .arama-geri-btn { font-size: 24px; color: #5f6368; cursor: pointer; padding-right: 15px; line-height: 1; }
+        .arama-input { flex: 1; border: none; outline: none; font-size: 16px; color: #202124; }
+        .arama-input::placeholder { color: #70757a; }
+        .arama-temizle-btn { font-size: 20px; color: #5f6368; cursor: pointer; display: none; padding-left: 10px; }
+
+        .arama-sonuclar-baslik { font-size: 12px; color: #9aa0a6; padding: 20px 20px 10px 20px; display: none; }
+        #arama-sonuclari { flex: 1; overflow-y: auto; }
+        
+        .arama-sonuc-item { display: flex; align-items: center; padding: 12px 20px; cursor: pointer; border-bottom: 1px solid #f1f3f4; }
+        .arama-sonuc-item:hover { background-color: #f8f9fa; }
+        .arama-sonuc-metinler { display: flex; flex-direction: column; }
+        .arama-sonuc-isim { font-size: 15px; color: #3c4043; } 
+        .arama-sonuc-grup { font-size: 12px; color: #70757a; margin-top: 3px; }
+
+        /* =========================================
+           3. ÇETE BİLGİ PANELİ
+           ========================================= */
+        #cete-paneli {
+            position: absolute; top: 0; left: -470px; width: 450px; height: 100vh;
+            background-color: white; z-index: 2000; overflow-y: auto;
+            transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 4px 0 15px rgba(0,0,0,0.25); display: flex; flex-direction: column;
+        }
+        #cete-paneli.acik { left: 0; }
+        #panel-img { width: 100%; height: 160px; background-size: cover; background-position: center; flex-shrink: 0; }
+        
+        .panel-baslik-bar { 
+            background-color: #db4437; 
+            color: white; 
+            min-height: 60px; 
+            display: flex;
+            align-items: center; 
+            padding: 0 20px; 
+            position: relative; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2); 
+            flex-shrink: 0;
+        }
+        #kapat-btn { 
+            font-size: 24px; 
+            color: white; 
+            cursor: pointer; 
+            margin-right: 15px; 
+            display: flex;
+            align-items: center;
+        }
+        .panel-baslik-bar h1 { 
+            margin: 0; 
+            font-size: 18px; 
+            font-weight: 500; 
+            line-height: 1.3;
+        }
+        
+        .panel-icerik { padding: 20px 30px; }
+        .veri-etiketi { font-size: 11px; color: #9aa0a6; margin-bottom: 4px; text-transform: lowercase; font-weight: 400; }
+        .veri-metni { font-size: 14px; color: #3c4043; margin-bottom: 20px; line-height: 1.5; font-weight: 400; }
+
+        .leaflet-control-zoom { border: none !important; box-shadow: 0 2px 10px rgba(0,0,0,0.2) !important; }
+        .leaflet-control-zoom a { background-color: white !important; color: #3c4043 !important; width: 40px !important; height: 40px !important; line-height: 40px !important; font-size: 20px !important; border-bottom: 1px solid #f1f1f1 !important; }
+        .leaflet-container { background: #0fa8d2 !important; outline: 0; }
+    </style>
+</head>
+<body>
+
+    <div id="ana-liste-paneli">
+        <div class="liste-header">
+            <div class="header-sol">
+                <svg class="hamburger-ikon" viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+                <h2>Gangs of Los Santos (2026)</h2>
+            </div>
+            <div class="header-sag">
+                <svg class="buyutec-ikon" onclick="aramaPanelAc()" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                <svg class="nokta-ikon" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+            </div>
+        </div>
+
+        <div class="briefing-container">
+            <div class="briefing-baslik-alani" onclick="toggleBriefing()">
+                <div class="briefing-ok" id="brief-ikon">▼</div>
+                <div class="briefing-ozet">
+                    Map of Los Santos-based Blood, Crip, Hoover, Piru, Paisa, and Sureño gangs.
+                    <div style="color: #70757a; font-size: 12px; margin-top: 4px;">42.058.634 görüntüleme</div>
+                    <div class="paylas-yazisi">PAYLAŞ</div>
+                </div>
+            </div>
+            <div class="briefing-icerik-wrapper" id="brief-icerik-wrapper">
+                <div class="briefing-icerik">
+                    This map was created exclusively for the GTA World TR server to reflect in-game gang territories in the style of the real-life "Gangs of Los Angeles" map, aiming to enhance roleplay realism. All content, names, locations, and territories depicted are strictly fictional, created for roleplay purposes only, and have absolutely no connection to real-life events, individuals, or organizations.
+                    <br><br>
+                    Bu harita, rol realizmini artırmak amacıyla gerçek hayattaki "Gangs of Los Angeles" haritası tarzında, GTA World TR sunucusundaki oyun içi çete bölgelerini yansıtmak üzere özel olarak oluşturulmuştur. Tasvir edilen tüm içerikler, isimler, konumlar ve bölgeler tamamen kurgusaldır, yalnızca rol yapma amacıyla oluşturulmuştur ve gerçek hayattaki olaylar, kişiler veya kuruluşlarla kesinlikle hiçbir bağlantısı yoktur.
+                    
+                    <br><br>
+                    <strong>Color Key / Renk Anahtarı</strong><br>
+                    Blue - Crips ♿<br>
+                    Cerulean - Avenue Crips 🇦 ♿<br>
+                    Cyan - Blocc Crips 💙 ♿<br>
+                    Aqua - City Crips ⚓ ♿<br>
+                    Light Blue - Neighborhood Crips or 2X ✌ 🤙<br>
+                    Dark Blue - Gangster Crips or 3X Ⓜ 🤙 ♿ 3️⃣<br>
+                    Green - Hustler Crips 💲 🤙 🟢 ♿<br>
+                    Yellow - Mafia Crips 〽 🌕 ♿<br>
+                    White - Kitchen Crips 🥄 ⚪ ♿<br>
+                    Orange - Hoovers ⭐ 🟠 🆗<br>
+                    Red - Bloods ✌ 🩸<br>
+                    Maroon - Brims 🎩 🤙 🔴<br>
+                    Burgundy - Pirus 🇵 🤙 🔴<br>
+                    Black - Black P. Stones ⭐ 🤙 ⚫<br>
+                    Charcoal - Criminal Gangs or Tiny Raskal Gang κн<br>
+                    Gold - Asian Boyz or Asian Gangs κн νɴ κʀ ᴄɴ<br>
+                    Amber - Armenian Power 1️⃣ 3️⃣ AM<br>
+                    Silver - 18th Street 1️⃣ 8️⃣ мх<br>
+                    Grey - Sureños 1️⃣ 3️⃣ мх<br>
+                    Brown - Paisas 1️⃣ 6️⃣ мх<br>
+                    Dark Green - Maravillas 〽 мх<br><br>
+
+                    <strong>Note:</strong><br>
+                    This map primarily includes active factions and street gangs operating within the City of Los Santos and surrounding areas of Los Santos County and Blaine County. Because server dynamics are always shifting, the map remains an ongoing project and is continually updated based on in-character (IC) developments and faction statuses.
+                    <br><br>
+                    <strong>Not:</strong><br>
+                    Bu harita öncelikli olarak Los Santos şehri ile Los Santos County ve Blaine County'nin çevre bölgelerinde faaliyet gösteren aktif oluşumları ve sokak çetelerini içermektedir. Sunucu dinamikleri sürekli değiştiğinden, harita devam eden bir projedir ve karakter içi (IC) gelişmelere ve oluşum durumlarına göre sürekli güncellenmektedir.
+                    <br><br>
+                    
+                    <strong>Copyright Notice / Warning:</strong><br>
+                    Unauthorized copying, reposting, redistribution, scraping, re-uploading, or misrepresentation of the Gangs of Los Santos map, in whole or in part, is strictly prohibited. This project is a dedicated community effort for GTA World TR. Public access to this map does not grant ownership, authorship, or permission to duplicate, republish, or distribute this work under another name. Any individual, platform, or organization found using this map or its contents without permission—especially while claiming authorship—may be subject to community reports and platform enforcement. This work is actively monitored. Attempts to steal, rebrand, or pass off this map as original work will be addressed.
+                    <br><br>
+                    <strong>Telif Hakkı Bildirimi / Uyarı:</strong><br>
+                    Gangs of Los Santos haritasının tamamen veya kısmen izinsiz kopyalanması, yeniden yayınlanması, dağıtılması, kazınması, yeniden yüklenmesi veya yanlış tanıtılması kesinlikle yasaktır. Bu proje GTA World TR için adanmış bir topluluk çalışmasıdır. Bu haritaya genel erişim, bu eseri başka bir isim altında çoğaltma, yeniden yayınlama veya dağıtma konusunda sahiplik, yazarlık veya izin vermez. Bu haritayı veya içeriklerini izinsiz olarak - özellikle de yazarlık iddia ederek - kullandığı tespit edilen herhangi bir kişi, platform veya kuruluş, topluluk raporlarına ve platform yaptırımlarına tabi olabilir. Bu çalışma aktif olarak izlenmektedir. Bu haritayı çalma, yeniden markalama veya orijinal eser olarak gösterme girişimlerine müdahale edilecektir.<br><br>
+                    
+                    Gangs of Los Santos © 2026 Keyfekeder. All rights reserved. / Tüm hakları saklıdır.
+                </div>
+            </div>
+        </div>
+
+        <div id="gercek-liste"></div>
+        <div class="footer-signature">developed by keyfekeder</div>
+    </div>
+
+    <div id="arama-paneli">
+        <div class="arama-ust-bar">
+            <span class="arama-geri-btn" onclick="aramaPanelKapat()">&#8592;</span>
+            <input type="text" id="aramaInput" class="arama-input" placeholder="Arama yapın..." onkeyup="aramaCalistir()">
+            <span class="arama-temizle-btn" id="aramaTemizleBtn" onclick="aramaTemizle()">&#10005;</span>
+        </div>
+        <div class="arama-sonuclar-baslik" id="aramaBaslik">Haritanızdan</div>
+        <div id="arama-sonuclari"></div>
+    </div>
+
+    <div id="cete-paneli">
+        <div id="panel-img"></div>
+        <div class="panel-baslik-bar">
+            <div id="kapat-btn" onclick="panelKapat()">&#8592;</div>
+            <h1 id="p-isim-bar">...</h1>
+        </div>
+        <div class="panel-icerik">
+            <div class="veri-etiketi">isim</div>
+            <div id="p-isim" class="veri-metni">...</div>
+            <div class="veri-etiketi">açıklama</div>
+            <div id="p-detay" class="veri-metni">...</div>
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        var map = L.map('map', {
+            crs: L.CRS.Simple, minZoom: -1, maxZoom: 4, zoomSnap: 0.1, zoomControl: false, attributionControl: false
+        });
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+        var bounds = [[0,0], [1000,1000]];
+        L.imageOverlay('harita.png', bounds).addTo(map);
+        map.fitBounds(bounds);
+
+        var seciliKatman = null;
+        var katmanlar = {}; 
+        var tumBolgeler = []; 
+
+        function toggleBriefing() {
+            var icerikWrapper = document.getElementById("brief-icerik-wrapper");
+            var ikon = document.getElementById("brief-ikon");
+            
+            if (icerikWrapper.classList.contains("acik")) {
+                icerikWrapper.classList.remove("acik");
+                ikon.style.transform = "rotate(0deg)";
+            } else {
+                icerikWrapper.classList.add("acik");
+                ikon.style.transform = "rotate(-180deg)"; 
+            }
+        }
+
+        function katmanOlustur(grupAdi) {
+            var konteynir = document.getElementById('gercek-liste');
+            var grupDiv = document.createElement('div');
+            grupDiv.className = "katman-grup";
+            grupDiv.id = "grup-" + grupAdi.replace(/[^a-zA-Z0-9]/g, '-');
+
+            grupDiv.innerHTML = `
+                <div class="grup-baslik-satiri">
+                    <input type="checkbox" checked class="grup-cb" onchange="grupToggle('${grupAdi}', this.checked)">
+                    <span class="grup-adi">${grupAdi}</span>
+                </div>
+                <div class="grup-icerik" id="icerik-${grupAdi.replace(/[^a-zA-Z0-9]/g, '-')}"></div>
+            `;
+            konteynir.appendChild(grupDiv);
+            katmanlar[grupAdi] = [];
+        }
+
+        function ceteEkle(grupAdi, coords, renk, isim, detay, foto) {
+            var poly = L.polygon(coords, { color: renk, weight: 2, fillColor: renk, fillOpacity: 0.3 }).addTo(map);
+            var veri = { katman: poly, ad: isim, grup: grupAdi, detay: detay, foto: foto, renk: renk };
+            
+            katmanlar[grupAdi].push(veri);
+            tumBolgeler.push(veri);
+
+            var sutun = document.getElementById("icerik-" + grupAdi.replace(/[^a-zA-Z0-9]/g, '-'));
+            
+            var item = document.createElement('div');
+            item.className = "liste-item";
+            item.innerHTML = `
+                <span class="item-ikon" style="background-color: ${renk}; border: 1px solid rgba(0,0,0,0.1);"></span>
+                <span class="item-isim">${isim}</span>
+            `;
+            item.onclick = function() { bolgeAktifEt(veri); };
+            sutun.appendChild(item);
+
+            poly.on('click', function(e) { bolgeAktifEt(veri); L.DomEvent.stopPropagation(e); });
+        }
+
+        function aramaPanelAc() {
+            document.getElementById('arama-paneli').classList.add('acik');
+            document.getElementById('aramaInput').focus();
+        }
+
+        function aramaPanelKapat() {
+            document.getElementById('arama-paneli').classList.remove('acik');
+            aramaTemizle();
+        }
+
+        function aramaTemizle() {
+            document.getElementById('aramaInput').value = "";
+            aramaCalistir();
+        }
+
+        function aramaCalistir() {
+            var input = document.getElementById('aramaInput').value.toLowerCase();
+            var temizleBtn = document.getElementById('aramaTemizleBtn');
+            var baslik = document.getElementById('aramaBaslik');
+            var sonuclar = document.getElementById('arama-sonuclari');
+            
+            sonuclar.innerHTML = "";
+            
+            if(input.length > 0) {
+                temizleBtn.style.display = "block";
+                baslik.style.display = "block";
+                
+                tumBolgeler.forEach(veri => {
+                    if(veri.ad.toLowerCase().includes(input)) {
+                        var div = document.createElement('div');
+                        div.className = 'arama-sonuc-item';
+                        div.innerHTML = `
+                            <span class="item-ikon" style="background-color: ${veri.renk}; border: 1px solid rgba(0,0,0,0.1); margin-right:15px; width: 16px; height: 16px;"></span>
+                            <div class="arama-sonuc-metinler">
+                                <span class="arama-sonuc-isim">${veri.ad}</span>
+                                <span class="arama-sonuc-grup">${veri.grup}</span>
+                            </div>
+                        `;
+                        div.onclick = function() {
+                            aramaPanelKapat();
+                            bolgeAktifEt(veri);
+                        };
+                        sonuclar.appendChild(div);
+                    }
+                });
+            } else {
+                temizleBtn.style.display = "none";
+                baslik.style.display = "none";
+            }
+        }
+
+        function grupToggle(grupAdi, durum) {
+            katmanlar[grupAdi].forEach(cete => {
+                if (durum) { cete.katman.addTo(map); } 
+                else { cete.katman.remove(); if (seciliKatman === cete.katman) panelKapat(); }
+            });
+        }
+
+        function bolgeAktifEt(veri) {
+            if (seciliKatman) { 
+                seciliKatman.setStyle({ color: seciliKatman.options.originalColor, weight: 2, fillOpacity: 0.3 }); 
+            }
+            
+            seciliKatman = veri.katman;
+            veri.katman.options.originalColor = veri.renk;
+            veri.katman.setStyle({ color: 'white', weight: 4, fillOpacity: 0.3 });
+            
+            map.panTo(veri.katman.getBounds().getCenter());
+            
+            document.getElementById('p-isim-bar').innerText = veri.ad;
+            document.getElementById('p-isim').innerText = veri.ad;
+            document.getElementById('p-detay').innerHTML = veri.detay;
+            document.getElementById('panel-img').style.backgroundImage = "url('" + veri.foto + "')";
+            
+            document.getElementById('cete-paneli').classList.add('acik');
+        }
+
+        function panelKapat() {
+            document.getElementById('cete-paneli').classList.remove('acik');
+            if (seciliKatman) { seciliKatman.setStyle({ color: seciliKatman.options.originalColor, weight: 2, fillOpacity: 0.3 }); seciliKatman = null; }
+        }
+
+        map.on('click', function() { panelKapat(); aramaPanelKapat(); });
+
+        // VERİ GİRİŞİ
+        katmanOlustur("East Vinewood");
+        ceteEkle("East Vinewood", [[336, 459], [335, 463], [327, 460], [329, 456]], '#808080', 'Hang Out Boyz 13 мх', 'West Vinewood merkezli saygın bir Sureño çetesi olan HOB13, Alta Street ve Spanish Avenue kesişiminde 1970\'lerden beri varlık sürdürmektedir. 1986 yılında Street Villains 13 ile yaşanan kanlı çatışmaların ardından profesyonel bir sokak çetesine dönüşmüşlerdir.', 'Baslksz-206.jpg');
+        katmanOlustur("East Los Santos");
+        katmanOlustur("South Los Santos");
+        katmanOlustur("Vespucci");
+        katmanOlustur("Little Seoul");
+    </script>
+</body>
+</html>
