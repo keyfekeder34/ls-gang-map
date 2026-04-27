@@ -9,11 +9,18 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #f5f5f5; overflow: hidden; font-family: 'Roboto', Arial, sans-serif; }
-        #map { width: 100vw; height: 100vh; background-color: #f5f5f5; z-index: 1; }
+        
+        /* PERFORMANS İYİLEŞTİRMELİ MAP STİLİ */
+        #map { 
+            width: 100vw; 
+            height: 100vh; 
+            background-color: #f5f5f5; 
+            z-index: 1; 
+            transform: translateZ(0); /* GPU İvmesi */
+            will-change: transform;
+            image-rendering: -webkit-optimize-contrast;
+        }
 
-        /* =========================================
-           1. SOL ANA LİSTE (KATMAN PANELİ - 450px)
-           ========================================= */
         #ana-liste-paneli {
             position: absolute; top: 0; left: 0; 
             width: 450px; height: 100vh;
@@ -24,7 +31,6 @@
             overflow-y: auto; 
         }
 
-        /* SOL PANEL İÇİN MODERN SCROLLBAR */
         #ana-liste-paneli::-webkit-scrollbar { width: 6px; }
         #ana-liste-paneli::-webkit-scrollbar-track { background: transparent; }
         #ana-liste-paneli::-webkit-scrollbar-thumb { background: #dadce0; border-radius: 4px; }
@@ -43,9 +49,6 @@
         .buyutec-ikon { width: 20px; height: 20px; fill: white; cursor: pointer; }
         .nokta-ikon { fill: white; width: 22px; height: 22px; cursor: pointer; }
 
-        /* =========================================
-           ANİMASYONLU BRİFİNG ALANI
-           ========================================= */
         .briefing-container {
             border-bottom: 1px solid #ebebeb;
             background-color: #f8f9fa;
@@ -111,9 +114,6 @@
             flex-shrink: 0;
         }
 
-        /* =========================================
-           2. ARAMA PANELİ
-           ========================================= */
         #arama-paneli {
             position: absolute; top: 0; left: -470px; width: 450px; height: 100vh;
             background-color: white; z-index: 1800;
@@ -140,9 +140,6 @@
         .arama-sonuc-isim { font-size: 15px; color: #3c4043; } 
         .arama-sonuc-grup { font-size: 12px; color: #70757a; margin-top: 3px; }
 
-        /* =========================================
-           3. ÇETE BİLGİ PANELİ
-           ========================================= */
         #cete-paneli {
             position: absolute; top: 0; left: -470px; width: 450px; height: 100vh;
             background-color: white; z-index: 2000; overflow-y: auto;
@@ -186,7 +183,6 @@
         .leaflet-control-zoom a { background-color: white !important; color: #3c4043 !important; width: 40px !important; height: 40px !important; line-height: 40px !important; font-size: 20px !important; border-bottom: 1px solid #f1f1f1 !important; }
         .leaflet-container { background: #0fa8d2 !important; outline: 0; }
 
-        /* TIKLANINCA OLUŞACAK BEYAZ HALKA (HIGHLIGHT) */
         .marker-highlight {
             border: 4px solid white !important;
             border-radius: 50%;
@@ -296,7 +292,9 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
+        // JS PERFORMANS GÜNCELLEMESİ (PREFERCANVAS)
         var map = L.map('map', { 
+            preferCanvas: true, // Marker ve poligonları GPU ile çizer
             crs: L.CRS.Simple, 
             minZoom: 0.5, 
             maxZoom: 4, 
@@ -307,7 +305,7 @@
         L.control.zoom({ position: 'bottomright' }).addTo(map);
 
         var bounds = [[0,0], [1000,1000]];
-        L.imageOverlay('harita.png', bounds).addTo(map);
+        L.imageOverlay('harita.webp', bounds).addTo(map);
         
         map.setView([250, 450], 1.5); 
 
@@ -424,14 +422,53 @@
         katmanOlustur("East Los Santos");
         katmanOlustur("Vespucci");
 
-ceteEkle("Vinewood", [[334,464],[332,470],[325,468],[327,461]], '#808080', 'W/S Hang Out Boyz 13 мх', 'West Vinewood merkezli saygın bir Sureño çetesi olan HOB13, Alta Street ve Spanish Avenue kesişiminde 1970\'lerden beri varlık sürdürmektedir. 1986 yılında Street Villains 13 ile yaşanan kanlı çatışmaların ardından profesyonel bir sokak çetesine dönüşmüşlerdir.<br><br>Rapçiler: Baby Lu<br>https://www.youtube.com/watch?v=aBRm1vEfD8c&t=2s<br>https://www.youtube.com/watch?v=_2pVbQLK344', 'Baslksz-206.jpg');        ceteEkle("Vinewood", [329, 465], 'grey', "Laguna Blocks", "Alta Street üzerindeki Laguna Blocks yerleşim kompleksleri.", "Grand Theft Auto V Screenshot 2026.04.09 - 16.39.01.46.png", { icon: buildingIcon });
+        ceteEkle("Vinewood", [[334,464],[332,470],[325,468],[327,461]], '#808080', 'W/S Hang Out Boyz 13 мх', 'West Vinewood merkezli saygın bir Sureño çetesi olan HOB13, Alta Street ve Spanish Avenue kesişiminde 1970\'lerden beri varlık sürdürmektedir. 1986 yılında Street Villains 13 ile yaşanan kanlı çatışmaların ardından profesyonel bir sokak çetesine dönüşmüşlerdir.<br><br>Rapçiler: Baby Lu<br>https://www.youtube.com/watch?v=aBRm1vEfD8c&t=2s<br>https://www.youtube.com/watch?v=_2pVbQLK344', 'Baslksz-206.jpg');        
+
+function bolgeAktifEt(veri) {
+    if (seciliKatman) { 
+        var eskiVeri = tumBolgeler.find(v => v.katman === seciliKatman);
+        if(eskiVeri && seciliKatman.setStyle) { seciliKatman.setStyle({ color: eskiVeri.orjinalAyarlar.color, weight: eskiVeri.orjinalAyarlar.weight, fillOpacity: eskiVeri.orjinalAyarlar.fillOpacity }); }
+        if(seciliKatman.getElement && seciliKatman.getElement()) { seciliKatman.getElement().classList.remove('marker-highlight'); }
+    }
+    seciliKatman = veri.katman;
+    if(veri.katman.setStyle) { veri.katman.setStyle({ color: 'white', weight: 2.5, fillOpacity: 0.3 }); }
+    if(veri.katman.getElement && veri.katman.getElement()) {
+        veri.katman.getElement().classList.add('marker-highlight');
+    }
+    var center = veri.katman.getBounds ? veri.katman.getBounds().getCenter() : veri.katman.getLatLng();
+    map.panTo(center);
+
+    // --- TÜM VİDEOLARI ÖNİZLEME YAPMA MANTIĞI ---
+    let hamMetin = veri.detay;
+    
+    // YouTube linklerini yakalayan Global Regex (/g takısı tüm linkleri bulur)
+    const ytRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:[^\s<]*)/g;
+    
+    let yeniMetin = hamMetin.replace(ytRegex, function(match, videoId) {
+        return `
+            <div style="margin: 15px 0; background: #000; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
+                <iframe width="100%" height="220" src="https://www.youtube.com/embed/${videoId}" 
+                    frameborder="0" allowfullscreen style="display: block;"></iframe>
+                <a href="${match}" target="_blank" style="display: block; padding: 10px; background: #f8f9fa; color: #db4437; text-decoration: none; font-size: 12px; text-align: center; font-weight: bold; border-top: 1px solid #ddd;">
+                    🔴 VİDEOYU YOUTUBE'DA AÇ
+                </a>
+            </div>`;
+    });
+
+    document.getElementById('p-isim-bar').innerText = veri.ad;
+    document.getElementById('p-isim').innerText = veri.ad;
+    document.getElementById('p-detay').innerHTML = yeniMetin; // Düzenlenen çift videolar buraya gelecek
+    document.getElementById('panel-img').style.backgroundImage = "url('" + veri.foto + "')";
+    document.getElementById('cete-paneli').classList.add('acik');
+}
+
+        ceteEkle("Vinewood", [329, 465], 'grey', "Laguna Blocks", "Alta Street üzerindeki Laguna Blocks yerleşim kompleksleri.", "Grand Theft Auto V Screenshot 2026.04.09 - 16.39.01.46.png", { icon: buildingIcon });
         
         ceteEkle("Little Seoul", [[257,391],[257,406],[249,406],[249,399],[245,393]], 'silver', "W/S Decker Park Locos 18 🇲🇽", "Decker Park Locos 18, Little Seoul üzerinde faaliyet gösteren, çoğunluğu Meksika ve Orta Amerika göçmenlerinden oluşan ve MS13 ile yaşadığı şiddetli çatışmalarla adını duyuran kötü şöhretli ve 18th Street Gang'in en geniş kliklerinden birisidir. Çetenin varlığı Ginger St ve Decker St. üzerinde yoğunlaşsa da güneyde Vespucci'ye kadar uzanmaktadır.", "image.png", {color: '#6c757d', weight: 3});
         ceteEkle("Little Seoul", [251, 395], 'grey', "Decker Park", "Little Seoul bölgesinin kalbinde yer alan Decker Park, bölgedeki sosyal yaşamın ve yerel oluşumların kesişim noktasıdır.", "Grand Theft Auto V Screenshot 2026.04.09 - 16.51.01.85.png", { icon: parkIcon });
         
-ceteEkle("Little Seoul", [[246,406],[247,398],[257,399],[257,406]], 'gold', "Decker Side 23", "Decker Side 23 olarak bilinen bu set, 1960’ların sonlarında San Andreas’ta, temelleri Çinli topluluklara dayanan ve zamanla Vietnamlı ile diğer Güneydoğu Asyalı üyelerle genişleyen bir yapı olarak ortaya çıkmıştır. Günümüzde ağırlıklı olarak Little Seoul bölgesinde; arka sokaklar, gece kulüpleri, karaoke barları ve Little Seoul içinde çeşitli yerlerde aktiflik göstermektedirler.", "Gemini_Generated_Image_4kldb24kldb24kld.png");
+        ceteEkle("Little Seoul", [[246,406],[247,398],[257,399],[257,406]], 'gold', "Decker Side 23", "Decker Side 23 olarak bilinen bu set, 1960’ların sonlarında San Andreas’ta, temelleri Çinli topluluklara dayanan ve zamanla Vietnamlı ile diğer Güneydoğu Asyalı üyelerle genişleyen bir yapı olarak ortaya çıkmıştır. Günümüzde ağırlıklı olarak Little Seoul bölgesinde; arka sokaklar, gece kulüpleri, karaoke barları ve Little Seoul içinde çeşitli yerlerde aktiflik göstermektedirler.", "Gemini_Generated_Image_4kldb24kldb24kld.png");
 
-        // HOOVER GÜNCEL METİN, KOORDİNAT VE FOTO
         ceteEkle("South Los Santos", [[205,444],[199,439],[189,439],[184,444],[196,455],[202,460],[207,454],[204,451],[201,449]], 'orange', "W/S 59 Hoover Criminals Gang", "59 Hoover Criminals Gang (59HCG), Los Santos'un Güney bölgesinde, özellikle Davis ve Forum Drive hatları üzerinde mutlak hakimiyet kuran, şehrin sokak çetelerinden biridir. Geleneksel olarak Afro-Amerikan kökenli bir çete olarak bilinse de, 59HCG son on yılda demografik bir devrim yaşadı. Günümüzde çetenin yeni nesil safları, Afro-Amerikan üyelerden ziyade bölgeye yerleşen Latino ve Filipino topluluklarından gelen gençlerle dolduğu bilinmekte. Çete, uyuşturucu dağıtımı, ateşli silah kaçakçılığı ve bölgedeki yerel işletmeler üzerindeki baskısıyla tanınır.<br><br>Keon 'Slip' Cooke , Jamal 'J-Nine' Lewis bilinen üyeleridir.", "Screenshot_2.png");
         
         ceteEkle("South Los Santos", [[183,489],[181,491],[174,485],[176,483]], 'grey', "S/S Barrio Los Padrinos 13", "Barrio Los Padrinos (BP13), Mahallede BLP 13, Padrinos ya da kısaca Padrinos 13 olarak bilinen Barrio Los Padrinos 13, 70’li yıllardan beri Los Santos’un güneydoğusunda varlığını sürdürmeyen eski usul bir Sureno mahallesidir; Roy Lowenstein civarında yoğun bir şekilde faaliyet gösterir.BLP 13, aynı arka sokaklar için savaşan yerel mahallelerle (Florencia 13, Barrio Norwalk, South Side Montebello 13) ve onlara sırt çeviren veya karşı çıkan mahalle grafiti gruplarıyla sıkı bir rekabet içinde kaldı. Doğu Kıyısı Crips ile eski düşmanlıkları, gruplar aynı sokaklarda karşılaştıklarında alevleniyor.", "9hhUbPN.png");
@@ -439,13 +476,13 @@ ceteEkle("Little Seoul", [[246,406],[247,398],[257,399],[257,406]], 'gold', "Dec
         
         ceteEkle("South Los Santos", [[200,503],[195,498],[185,491],[180,496],[176,500],[174,501],[178,505],[185,505],[192,506],[196,506],[199,505]], 'yellow', "E/S Main Street Mafia Crips", "Main Street Mafia Crips (MSMC), Los Santos'un Doğu Yakasında bulunan çoğunlukla Rancho bölgesinde olan bir Afrikalı-Amerikalı sokak çetesidir. 84 Main Street Mafia Crips ve 98 Main Street Mafia Crips olarak bilinen iki alt setden oluşurlar. Main Street Mafia Crips, Mafia Crips altına giriyor. Fudge Town Mafia Crips ve Blue Gate Mafia Crips ile 99 Watt Mafia Crips ile birlikte, Main Street Crips'in, bağlarını göstermek için genellikle sarı ve mavi kullanıyorlar. MFSB artık onların başlıca rakipleri hâline gelmiştir; bunun yanında Hoover çeteleriyle de sorunları vardır. Günümüzde ise Swans, Hoovers, 87 & 97 Gangstaz, Broadways, Avalons ve Bebop’s ile çatışan genç bir nesilleri var. 98 Main Street Mafia Crips, Colden Ave ile 104th Street arasındaki 98th Street and Main Street civarında ortaya çıktı. 110 Otoyolu (Liman) ve Rancho Caddesi, onların sınır çizgisi görevi görüyor. Esas olarak Q102 East Coast Crips , 97 Gangster Crips , 112 Broadway Gangster Crips ve Denver Lane Gangster Bloods ile rekabet halindedirler. 84 Street Mafia Crips, 84th Street ve Main Street çevresinde, Rancho ve Innocence Blvd arasında yer almaktadır. 84 Street Mafia Crips, 98 Main Street Crips'ten daha yeni ve küçüktür. Sayısına rağmen, 84 MSMC şiddet konusundaki acımasız itibarlarıyla tanınırlar. Esas olarak  Mad Swan Bloods ve  87 Gangster Crips ile rekabet içindeler.", "EEaVX8e.png");
 
-        ceteEkle("Vespucci", [[232,370],[229,363],[224,364],[222,365],[221,367],[222,370],[224,374]], 'darkblue', "W/S Playboy Gangster Crip", "Sokaklarda Playboy Gangster Crip, Rabbit Gang veya sadece PBGC olarak bilinen Playboy Gangster Crip. Playboy Gangster Crip, Vespucci ve özellikle de 'La Cienega' olarak da bilinen Invention ve çoğu zaman Vespucci Mall üzerinde aktiflerdir. Üyeler, bu bölgelerde çete faaliyetlerine günümüzde hala aktif olarak devam ediyor. Üyelerin rap endüstrisindeki etkileriyle, bölgedeki birçok genç PBG'ye katılmayı tercih ediyor. Playboy Gangster Crip'in birçok üyesini Palamino Ave, Bay City Ave, Prosperity 'P Street' üzerinde çeteye özgü geleneksel yüz dövmelerini taşırken, mahallede sık sık devriye gezerken, Invention üzerinde DP ve putt off aktivitelerinde bulunurken görmeniz oldukça muhtemeldir. Playboy Gangster Crip, Mansfield Gangster Crip ile şiddetli bir rekabet içindedir. Bu rekabet, çete bağlantılı birçok silahlı çatışmaya ve masum sivillerin vurulmasına neden olmuştur. Bu rekabet, Weazel TV kanalında yayınlanmıştır. (Weazel TV, Gangland programı) adlı programda ele alınmış ve her iki tarafın üyeleri (Playboy Crip ve Mansfield Crip) aralarındaki anlaşmazlıkları çözmeye çalışmıştır. Ancak, iki çete hala birbirlerinin düşmanı olmaya devam etmektedir.<br><br>PBG'nin diğer en büyük düşmanları, yirmi ya da otuz yıl öncesinden farksızdır. Vespucci Shoreline Crip ve School Yard Crip, Playboylerin en çok nefret ettiği iki çete grubudur. Sadece bir yıl önce, bir Shoreline Crip üyesi Vespucci'deki bir giyim mağazasının yakınındaki Bay City Avenue üzerinde birini öldürdü. Kısa süre sonra, PBG üyeleri sosyal medyada ölen düşmanlarına saygısızlık ettiler.", "dsK2pJv.png");
+        ceteEkle("Vespucci", [[232,370],[229,363],[224,364],[222,365],[221,367],[222,370],[224,374]], 'darkblue', "W/S Playboy Gangster Crip", "Sokaklarda Playboy Gangster Crip, Rabbit Gang veya sadece PBGC olarak bilinen Playboy Gangster Crip. Playboy Gangster Crip, Vespucci ve özellikle de 'La Cienega' olarak da bilinen Invention ve çoğu zaman Vespucci Mall üzerinde aktiflerdir. Üyeler, bu bölgelerde çete faaliyetlerine günümüzde hala aktif olarak devam ediyor. Üyelerin rap endüstrisindeki etkileriyle, bölgedeki birçok genç PBG'ye katılmayı tercih ediyor. Playboy Gangster Crip'in birçok üyesini Palamino Ave, Bay City Ave, Prosperity 'P Street' üzerinde çeteye özgü geleneksel yüz dövmelerini taşırken, mahallede sık sık devriye gezerken, Invention üzerinde DP ve putt off aktivitelerinde bulunurken görmeniz oldukça muhtemeldir. Playboy Gangster Crip, Mansfield Gangster Crip ile şiddetli bir rekabet içindedir. Bu rekabet, çete bağlantılı birçok silahlı çatışmaya ve masum sivillerin vurulmasına neden olmuştur. Bu rekabet, Weazel TV kanalında yayınlanmıştır. (Weazel TV, Gangland programı) adlı programda ele alınmış ve her iki tarafın üyeleri (Playboy Crip ve Mansfield Crip) aralarındaki anlaşmazlıkları çözmeye çalışmıştır. Ancak, iki çete hala birbirlerinin düşmanı olmaya devam etmektedir.<br><br>PBG'nin diğer en büyük düşmanları, yirmi ya da otuz yıl öncesinden farksızdır. Vespucci Shoreline Crip ve School Yard Crip, Playboylerin en çok nefret ettiği iki çete grubudur. Sadece bir year önce, bir Shoreline Crip üyesi Vespucci'deki bir giyim mağazasının yakınındaki Bay City Avenue üzerinde birini öldürdü. Kısa süre sonra, PBG üyeleri sosyal medyada ölen düşmanlarına saygısızlık ettiler.", "dsK2pJv.png");
 
-ceteEkle("South Los Santos", [[176,478],[181,472],[177,469],[173,465],[168,472],[173,476]], 'green', "E/S 107 Hustler Crips", "E/S 107 Hustler Crips, East Side Hustler Crips’in en güçlü ve en saygın kolu olarak 107. Cadde civarındaki bölgeyi kontrol altında tutmaktadır. On yıllar boyunca, 107 ESHC, Q102 East Coast Crips ve Budlong Side West Coast Crips ile istikrarlı iş ilişkileri kurdu ve bunları East Side'daki en yakın Crips ilişkilerinden bazılarına dönüştürdü. Modern dönemde, 107 grubu, orijinal bayrağı altında hala sokaklarda faaliyet gösteren, tamamen bozulmamış son Hustler kimliği olarak geniş çapta tanınmaktadır.<br><br>ESHC, Rollin 100s Crips ile yakın ilişkilere sahiptir. Ayrıca Bacc Street Crips, Big Time Hustler Crips, By Yourself Hustler Crips ile de ittifak halindedirler. Los Santos'da en büyük etkiye sahip oldukları için, diğer birçok set tarafından sevilmezler. Başlıca düşmanları, özellikle Avenue Piru Gang, 84 Main Street Mafia Crips, Main Street Mafia Crips, 88 Mad Swan Bloods ve Main Swan Bloods setleri olarak bilinmekte. Daha az bilinen ama yine de rakip olan çeteler arasında Denver Lane Bloods bulunur.", "image (2).png");
+        ceteEkle("South Los Santos", [[176,478],[181,472],[177,469],[173,465],[168,472],[173,476]], 'green', "E/S 107 Hustler Crips", "E/S 107 Hustler Crips, East Side Hustler Crips’in en güçlü ve en saygın kolu olarak 107. Cadde civarındaki bölgeyi kontrol altında tutmaktadır. On yıllar boyunca, 107 ESHC, Q102 East Coast Crips ve Budlong Side West Coast Crips ile istikrarlı iş ilişkileri kurdu ve bunları East Side'daki en yakın Crips ilişkilerinden bazılarına dönüştürdü. Modern dönemde, 107 grubu, orijinal bayrağı altında hala sokaklarda faaliyet gösteren, tamamen bozulmamış son Hustler kimliği olarak geniş çapta tanınmaktadır.<br><br>ESHC, Rollin 100s Crips ile yakın ilişkilere sahiptir. Ayrıca Bacc Street Crips, Big Time Hustler Crips, By Yourself Hustler Crips ile de ittifak halindedirler. Los Santos'da en büyük etkiye sahip oldukları için, diğer birçok set tarafından sevilmezler. Başlıca düşmanları, özellikle Avenue Piru Gang, 84 Main Street Mafia Crips, Main Street Mafia Crips, 88 Mad Swan Bloods ve Main Swan Bloods setleri olarak bilinmekte. Daha az bilinen ama yine de rakip olan çeteler arasında Denver Lane Bloods bulunur.", "image (2).png");
 
-ceteEkle("East Los Santos", [[174,486],[181,492],[178,494],[172,488]], 'lightblue', "E/S 66 East Coast Crip", "66 East Coast Crips, şehirdeki East Coast Crips kollarının en gençlerinden biridir.<br><br>62, 66, 68 ve 69 East Coast Crips arasındaki ittifak 6-Pacc Alliance olarak adlandırılır. Florencia 13 (F13) ve East Coast Crips, Los Santos'taki en acımasız savaşlardan birini yürütmeleriyle bilinirler. Bugün itibarıyla, birbirlerinin yoluna çıkmadıkları sürece Florencia 13 ve East Coast Crips arasında bir ateşkes mevcuttur. Bu ateşkese rağmen, iki çete sosyal medya ve grafitiler üzerinden birbirlerine hakaret etmeye (diss atmaya) devam etse de şiddet olayları büyük ölçüde durmuştur. East Coast Crips, yakın müttefikleri olarak kabul edilen 4-Pacc (42, 43, 48 Gangster Crips) ile 87 ve 97 Gangster Crips dışındaki tüm Gangster Crip gruplarının düşmanıdır. Ayrıca 66 East Coast Crips; tüm Bloods ve Hoovers gruplarıyla da düşmandır.", "env2.png", { weight: 3, opacity: 1, fillOpacity: 0.4 });
+        ceteEkle("East Los Santos", [[174,486],[181,492],[178,494],[172,488]], 'lightblue', "E/S 66 East Coast Crip", "66 East Coast Crips, şehirdeki East Coast Crips kollarının en gençlerinden biridir.<br><br>62, 66, 68 ve 69 East Coast Crips arasındaki ittifak 6-Pacc Alliance olarak adlandırılır. Florencia 13 (F13) ve East Coast Crips, Los Santos'taki en acımasız savaşlardan birini yürütmeleriyle bilinirler. Bugün itibarıyla, birbirlerinin yoluna çıkmadıkları sürece Florencia 13 ve East Coast Crips arasında bir ateşkes mevcuttur. Bu ateşkese rağmen, iki çete sosyal medya ve grafitiler üzerinden birbirlerine hakaret etmeye (diss atmaya) devam etse de şiddet olayları büyük ölçüde durmuştur. East Coast Crips, yakın müttefikleri olarak kabul edilen 4-Pacc (42, 43, 48 Gangster Crips) ile 87 ve 97 Gangster Crips dışındaki tüm Gangster Crip gruplarının düşmanıdır. Ayrıca 66 East Coast Crips; tüm Bloods ve Hoovers gruplarıyla da düşmandır.", "env2.png", { weight: 3, opacity: 1, fillOpacity: 0.4 });
 
-ceteEkle("South Los Santos", [[201,459],[206,463],[213,469],[214,466],[215,458],[215,452],[212,452],[211,452],[211,455],[209,455],[206,453],[203,457]], 'grey', "Varrio Strawberry 13 мх", "Varrio Strawberry 13 (S13), Los Santos’un güney merkezindeki Strawberry bölgesinde konuşlu, köklü bir Sureño iştirakidir. Organizasyon, faaliyetlerini temel olarak Forum Drive ve Strawberry Avenue aksında yer alan düşük gelirli konut projeleri ve çevresindeki dar sokak yapısı içerisinde yoğunlaştırmıştır.<br><br>Emiliano 'Shark' Fonseca, Ramon 'El Salivotas' Pareja bilinen ve önde gelen tescilli üyelerdir.", "image (4).png");
+        ceteEkle("South Los Santos", [[201,459],[206,463],[213,469],[214,466],[215,458],[215,452],[212,452],[211,452],[211,455],[209,455],[206,453],[203,457]], 'grey', "Varrio Strawberry 13 мх", "Varrio Strawberry 13 (S13), Los Santos’un güney merkezindeki Strawberry bölgesinde konuşlu, köklü bir Sureño iştirakidir. Organizasyon, faaliyetlerini temel olarak Forum Drive ve Strawberry Avenue aksında yer alan düşük gelirli konut projeleri ve çevresindeki dar sokak yapısı içerisinde yoğunlaştırmıştır.<br><br>Emiliano 'Shark' Fonseca, Ramon 'El Salivotas' Pareja bilinen ve önde gelen tescilli üyelerdir.", "image (4).png");
 
         document.addEventListener('contextmenu', event => event.preventDefault());
         document.onkeydown = function(e) { if (e.keyCode == 123 || (e.ctrlKey && e.shiftKey && (e.keyCode == 73 || e.keyCode == 74 || e.keyCode == 67)) || (e.ctrlKey && e.shiftKey && e.keyCode == 85)) return false; };
